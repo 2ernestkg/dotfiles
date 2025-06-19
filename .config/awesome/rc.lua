@@ -14,6 +14,9 @@ local beautiful = require("beautiful")
 local naughty = require("naughty")
 local menubar = require("menubar")
 local hotkeys_popup = require("awful.hotkeys_popup")
+local battery_widget = require("awesome-wm-widgets.battery-widget.battery")
+local logout_menu_widget = require("awesome-wm-widgets.logout-menu-widget.logout-menu")
+local volume_widget = require('awesome-wm-widgets.volume-widget.volume')
 -- Enable hotkeys help widget for VIM and other apps
 -- when client with a matching name is opened:
 require("awful.hotkeys_popup.keys")
@@ -130,9 +133,25 @@ menubar.utils.terminal = terminal -- Set the terminal for applications that requ
 -- Keyboard map indicator and switcher
 mykeyboardlayout = awful.widget.keyboardlayout()
 
+-- Clock and Calendar
+local calendar_widget = require("awesome-wm-widgets.calendar-widget.calendar")
+local cw = calendar_widget({
+    theme = 'naughty',
+    placement = 'top_right',
+    start_sunday = false,
+    radius = 8,
+    -- with customized next/previous (see table above)
+    previous_month_button = 1,
+    next_month_button = 3,
+})
 -- {{{ Wibar
 -- Create a textclock widget
 mytextclock = wibox.widget.textclock()
+mytextclock:connect_signal("button::press",
+    function(_, _, _, button)
+        if button == 1 then cw.toggle() end
+    end)
+
 
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
@@ -194,8 +213,7 @@ awful.screen.connect_for_each_screen(function(s)
     set_wallpaper(s)
 
     -- Each screen has its own tag table.
-    awful.tag({ "planner", "browse", "javadev", "flutterdev", "kompanion", "obank" }, s,
-        awful.layout.layouts[1])
+    awful.tag({ "planner", "browse", "webdev", "flutter", "javadev", "kompanion" }, s, awful.layout.layouts[1])
 
     -- Create a promptbox for each screen
     s.mypromptbox = awful.widget.prompt()
@@ -214,6 +232,10 @@ awful.screen.connect_for_each_screen(function(s)
         buttons = taglist_buttons
     }
 
+    -- Brightness widget
+    local brightness = require("brightness")
+    brightness_ctrl = brightness({})
+
     -- Create a tasklist widget
     s.mytasklist = awful.widget.tasklist {
         screen  = s,
@@ -224,22 +246,6 @@ awful.screen.connect_for_each_screen(function(s)
     -- Create the wibox
     s.mywibox = awful.wibar({ position = "top", screen = s })
 
-    local volume_widget = require('awesome-wm-widgets.volume-widget.volume')
-    local calendar_widget = require("awesome-wm-widgets.calendar-widget.calendar")
-    local cw = calendar_widget({
-        theme = "nord",
-        placement = "top_right",
-        radius = 8,
-        previous_month_button = 1,
-        next_month_button = 3,
-    })
-
-    mytextclock:connect_signal("button::press",
-        function(_, _, _, button)
-            if button == 1 then cw.toggle() end
-        end)
-
-    local logout_menu_widget = require("awesome-wm-widgets.logout-menu-widget.logout-menu")
     -- Add widgets to the wibox
     s.mywibox:setup {
         layout = wibox.layout.align.horizontal,
@@ -252,13 +258,17 @@ awful.screen.connect_for_each_screen(function(s)
         s.mytasklist, -- Middle widget
         {             -- Right widgets
             layout = wibox.layout.fixed.horizontal,
+            brightness_ctrl.widget,
             mykeyboardlayout,
-            wibox.widget.systray(),
             volume_widget {
                 widget_type = 'arc'
             },
+            battery_widget(),
+            wibox.widget.systray(),
             mytextclock,
-            logout_menu_widget(),
+            logout_menu_widget {
+                onlock = function() awful.spawn.with_shell('i3lock-fancy') end
+            },
             s.mylayoutbox,
         },
     }
@@ -273,16 +283,15 @@ root.buttons(gears.table.join(
 ))
 -- }}}
 
---- Keyboard Layout Switch Structure
+-- define a structure like this:
 kbdcfg = {}
 kbdcfg.cmd = "setxkbmap"
 kbdcfg.layout = { "us", "kg" }
-kbdcfg.current = 1
+kbdcfg.current = 1 -- us is default
 kbdcfg.switch = function()
     kbdcfg.current = kbdcfg.current % #(kbdcfg.layout) + 1
     os.execute(kbdcfg.cmd .. " " .. kbdcfg.layout[kbdcfg.current])
 end
-
 -- {{{ Key bindings
 globalkeys = gears.table.join(
     awful.key({ modkey, }, "s", hotkeys_popup.show_help,
@@ -297,7 +306,7 @@ globalkeys = gears.table.join(
         function()
             kbdcfg.switch()
         end,
-        { description = "switch keyboard layout", group = "keyboard" }
+        { description = "switch keyboard", group = "keyboard" }
     ),
     awful.key({ modkey, }, "j",
         function()
@@ -384,25 +393,15 @@ globalkeys = gears.table.join(
             }
         end,
         { description = "lua execute prompt", group = "awesome" }),
-    -- Brightness
-
-    awful.key({}, "XF86MonBrightnessDown", function()
-        awful.util.spawn("xbacklight -dec 15")
-    end),
-    awful.key({}, "XF86MonBrightnessUp", function()
-        awful.util.spawn("xbacklight -inc 15")
-    end),
     -- Menubar
     awful.key({ modkey }, "p", function() menubar.show() end,
-        { description = "show the menubar", group = "launcher" })
+        { description = "show the menubar", group = "launcher" }),
+    -- Screen Lock
+    awful.key({}, "F12", function() awful.util.spawn_with_shell("~/.config/awesome/lock.sh") end,
+        { description = "lock the window", group = "lock" })
 )
 
 clientkeys = gears.table.join(
-    awful.key({}, "F12",
-        function()
-            awful.util.spawn("gnome-screensaver-command -l")
-        end,
-        { description = "lock screen", group = "client" }),
     awful.key({ modkey, }, "f",
         function(c)
             c.fullscreen = not c.fullscreen
@@ -642,14 +641,14 @@ end)
 client.connect_signal("focus", function(c) c.border_color = beautiful.border_focus end)
 client.connect_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
--- Auto Startup
-do
-    local cmds =
-    {
-        "gnome-screensaver",
-        "telegram"
-    }
-    for _, i in pairs(cmds) do
-        awful.util.spawn(i)
+--  Autorun Applications
+autorun = true
+autorunApps = {
+    "telegram-desktop"
+}
+if autorun then
+    for app = 1, #autorunApps do
+        awful.util.spawn(autorunApps[app])
     end
 end
+awful.util.spawn_with_shell('nm-applet')
