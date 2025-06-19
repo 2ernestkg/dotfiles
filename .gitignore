@@ -1,0 +1,16 @@
+*
+!.gitignore
+# GIT aliases
+!.gitalias.txt
+# TMUX
+!.tmux.conf
+!.config/
+# Awesome WM
+!.config/awesome/
+!.config/awesome/rc.lua
+# NVIM
+!.config/nvim/
+!.config/nvim/**
+# Alacritty
+!.config/alacritty
+!.config/alacritty/**
