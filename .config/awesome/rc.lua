@@ -285,7 +285,7 @@ awful.screen.connect_for_each_screen(function(s)
 			volume_widget({
 				widget_type = "arc",
 			}),
-			battery_widget(),
+			--battery_widget(),
 			wibox.widget.systray(),
 			mytextclock,
 			logout_menu_widget({
