@@ -6,11 +6,11 @@ decorations = "Buttonless"
 
 #regular
 [font]
-size = 10
+size = 8
 
 [general]
 import = [
-  "~/.config/alacritty/themes/themes/tokyo_night.toml"
+  "~/.config/alacritty/themes/tokyo-night.toml"
 ]
 
 #for video
